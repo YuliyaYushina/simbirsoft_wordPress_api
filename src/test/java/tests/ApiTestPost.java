@@ -1,16 +1,14 @@
 package tests;
 
-import connectorDB.ConnectorDB;
+import dao.PostDB;
 import dto.ExceptionResponse;
 import dto.PostRequest;
 import dto.PostResponse;
+import helper.PostApiClient;
+import helper.PostDBClient;
+import helper.PostDataBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
 
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,226 +19,113 @@ public class ApiTestPost extends BaseTest {
     @Test
     @DisplayName("Успешное создание публикации при заполнении полей title, content, excerpt")
     void successfullyCreatePostALLFieldsTest() {
-        //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder()
-                .title("Все поля заполнены title")
-                .content("Все поля заполнены content")
-                .excerpt("Все поля заполнены excerpt")
-                .build();
+        //Создание объекта PostRequest для запроса
+        PostRequest postRequest = PostDataBuilder.buildPostRequest("Все поля заполнены title",
+                "Все поля заполнены content",
+                "Все поля заполнены excerpt");
 
-        PostResponse postResponse = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequest)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Отправка запроса на создание публикации
+        PostResponse postResponse = PostApiClient.createPostApi(postRequest, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponse.getId();
 
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
+
         //Запрос в БД
-        String sql = "SELECT ID, post_title, post_content, post_excerpt FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postTitleBD = resultSet.getString("post_title");
-                String postContentBD = resultSet.getString("post_content");
-                String postExcerptBD = resultSet.getString("post_excerpt");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals(postResponse.getTitle().getRaw(), postTitleBD, "Title не совпадает"),
-                        () -> assertEquals(postResponse.getContent().getRaw(), postContentBD, "Content не совпадает"),
-                        () -> assertEquals(postResponse.getExcerpt().getRaw(), postExcerptBD, "Excerpt не совпадает")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals(postResponse.getTitle().getRaw(), postDB.getTitle(), "Title не совпадает"),
+                () -> assertEquals(postResponse.getContent().getRaw(), postDB.getContent(), "Content не совпадает"),
+                () -> assertEquals(postResponse.getExcerpt().getRaw(), postDB.getExcerpt(), "Excerpt не совпадает")
+        );
     }
 
     @Test
     @DisplayName("Успешное создание публикации при заполнении поля title")
-    void successfullyCreatePostTitleTest() {
+    void successfullyCreatePostTitleTest() throws Exception {
         //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder()
-                .title("Заполнено только поле title")
-                .build();
+        PostRequest postRequest = PostDataBuilder.buildPostRequest("Заполнено только поле title", "title");
 
-        PostResponse postResponse = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequest)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Отправка запроса на создание публикации
+        PostResponse postResponse = PostApiClient.createPostApi(postRequest, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponse.getId();
 
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
+
         //Запрос в БД
-        String sql = "SELECT ID, post_title FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postTitleBD = resultSet.getString("post_title");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals(postResponse.getTitle().getRaw(), postTitleBD, "Title не совпадает")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-
-
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals(postResponse.getTitle().getRaw(), postDB.getTitle(), "Title не совпадает")
+        );
     }
 
     @Test
     @DisplayName("Успешное создание публикации при заполнении поля content")
-    void successfullyCreatePostContentTest() {
+    void successfullyCreatePostContentTest() throws Exception {
         //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder()
-                .content("Заполнено только поле content")
-                .build();
+        PostRequest postRequest = PostDataBuilder.buildPostRequest("Заполнено только поле content", "content");
 
-        PostResponse postResponse = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequest)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Отправка запроса на создание публикации
+        PostResponse postResponse = PostApiClient.createPostApi(postRequest, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponse.getId();
 
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
+
         //Запрос в БД
-        String sql = "SELECT ID, post_content FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postContentBD = resultSet.getString("post_content");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals(postResponse.getContent().getRaw(), postContentBD, "Content не совпадает")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-
-
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals(postResponse.getContent().getRaw(), postDB.getContent(), "Content не совпадает")
+        );
     }
 
     @Test
     @DisplayName("Успешное создание публикации при заполнении поля excerpt")
-    void successfullyCreatePostExcerptTest() {
+    void successfullyCreatePostExcerptTest() throws Exception {
         //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder()
-                .excerpt("Заполнено только поле excerpt")
-                .build();
+        PostRequest postRequest = PostDataBuilder.buildPostRequest("Заполнено только поле excerpt", "excerpt");
 
-        PostResponse postResponse = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequest)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Отправка запроса на создание публикации
+        PostResponse postResponse = PostApiClient.createPostApi(postRequest, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponse.getId();
 
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
+
         //Запрос в БД
-        String sql = "SELECT ID, post_title, post_content, post_excerpt FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postExcerptBD = resultSet.getString("post_excerpt");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals(postResponse.getExcerpt().getRaw(), postExcerptBD, "Excerpt не совпадает")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-
-
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals(postResponse.getExcerpt().getRaw(), postDB.getExcerpt(), "Excerpt не совпадает")
+        );
     }
 
     @Test
-    @DisplayName("Запрос на создание публикации при отправке пустого тела запроса")
+    @DisplayName("Запрос на создание публикации при отправке некорректного запроса на создание публикации")
     void exceptionCreatePostTest() {
-        //Проверка количества записей в БД перед отправкой пустого тела запроса
-        String sqlBeforePost = "SELECT count(*) as total FROM wp_posts";
-        int countPostsBeforePost = 0;
-
-        try (Connection con = ConnectorDB.getConnection();
-             Statement statement = con.createStatement()) {
-
-            ResultSet resultSet = statement.executeQuery(sqlBeforePost);
-
-            while (resultSet.next()) {
-                countPostsBeforePost = resultSet.getInt("total");
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
-
+        //Запрос в БД на количество записей перед отправкой некорректного запроса на создание публикации
+        int countPostsBeforePost = PostDBClient.selectCountWpPost();
 
         //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder().build();
+        PostRequest postRequest = PostDataBuilder.buildPostRequest();
 
+        //Отправка некорректного запроса на создание публикации
         ExceptionResponse exceptionResponse = given()
                 .spec(spec)
                 .queryParam("context", "edit")
@@ -252,55 +137,39 @@ public class ApiTestPost extends BaseTest {
                 .extract()
                 .as(ExceptionResponse.class);
 
+        //Проверка ответа API
+        assertAll("Проверка ответа API об ошибке 400",
+                () -> assertEquals("empty_content", exceptionResponse.getCode(), "Код ошибки не совпадает"),
+                () -> assertEquals(400, exceptionResponse.getErrorData().getStatus(), "Статус в теле ответа не 400")
+        );
 
-        //Проверка количества записей в БД после отправки пустого тела запроса
-        String sqlAfterPost = "SELECT count(*) as total FROM wp_posts";
-        int countPostsAfterPost = 0;
-
-        try (Connection con = ConnectorDB.getConnection();
-             Statement statement = con.createStatement()) {
-
-            ResultSet resultSet = statement.executeQuery(sqlBeforePost);
-
-            while (resultSet.next()) {
-                countPostsAfterPost = resultSet.getInt("total");
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        //Запрос в БД на количество записей после отправки некорректного запроса на создание публикации
+        int countPostsAfterPost = PostDBClient.selectCountWpPost();
 
         assertEquals(countPostsBeforePost, countPostsAfterPost, "Количество записей в БД изменилось, хотя запрос был ошибочным!");
     }
 
     @Test
     @DisplayName("Успешное изменение существующей публикации")
-    void successfullyUpdatePostTest() {
+    void successfullyUpdatePostTest() throws Exception {
         //Создание объекта PostRequest
-        PostRequest postRequestBeforeUpdate = PostRequest.builder()
-                .title("Изменение публикации")
-                .content("Успешное изменение публикации")
-                .excerpt("Изменение публикации")
-                .build();
+        PostRequest postRequestBeforeUpdate = PostDataBuilder.buildPostRequest("Изменение публикации",
+                "Успешное изменение публикации",
+                "Изменение публикации");
 
-        PostResponse postResponseUpdate = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequestBeforeUpdate)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Запрос на создание публикации
+        PostResponse postResponseUpdate = PostApiClient.createPostApi(postRequestBeforeUpdate, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponseUpdate.getId();
 
-        //Создание объекта для изменения поля title
-        PostRequest postRequestForUpdate = PostRequest.builder()
-                .title("Поле title изменено")
-                .build();
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
 
+        //Создание объекта PostRequest для изменения поля title
+        PostRequest postRequestForUpdate = PostDataBuilder.buildPostRequest("Поле title изменено", "title");
+
+        //Запрос на изменение публикации
         PostResponse postResponseAfterUpdate = given()
                 .spec(spec)
                 .queryParam("context", "edit")
@@ -314,131 +183,66 @@ public class ApiTestPost extends BaseTest {
                 .as(PostResponse.class);
 
         //Запрос в БД
-        String sql = "SELECT ID, post_title, post_content, post_excerpt FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postTitleBD = resultSet.getString("post_title");
-                String postContentBD = resultSet.getString("post_content");
-                String postExcerptBD = resultSet.getString("post_excerpt");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals(postResponseAfterUpdate.getTitle().getRaw(), postTitleBD, "Title не совпадает"),
-                        () -> assertEquals(postResponseAfterUpdate.getContent().getRaw(), postContentBD, "Content не совпадает"),
-                        () -> assertEquals(postResponseAfterUpdate.getExcerpt().getRaw(), postExcerptBD, "Excerpt не совпадает")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals(postResponseAfterUpdate.getTitle().getRaw(), postDB.getTitle(), "Title не совпадает"),
+                () -> assertEquals(postResponseAfterUpdate.getContent().getRaw(), postDB.getContent(), "Content не совпадает"),
+                () -> assertEquals(postResponseAfterUpdate.getExcerpt().getRaw(), postDB.getExcerpt(), "Excerpt не совпадает")
+        );
     }
 
     @Test
     @DisplayName("Успешное удаление уже созданной публикации")
     void successfullyDeleteTest() {
         //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder()
-                .title("Удаление публикации")
-                .content("Успешное удаление публикации")
-                .excerpt("Удаление публикации")
-                .build();
+        PostRequest postRequest = PostDataBuilder.buildPostRequest("Удаление публикации",
+                "Успешное удаление публикации",
+                "Удаление публикации");
 
-        //Создание публикации
-        PostResponse postResponse = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequest)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Запрос на создание публикации
+        PostResponse postResponse = PostApiClient.createPostApi(postRequest, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponse.getId();
 
-        PostResponse postResponseDelete = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .pathParam("id", postId)
-                .when()
-                .delete("posts/{id}")
-                .then()
-                .statusCode(200)
-                .extract()
-                .as(PostResponse.class);
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
+
+        //Запрос на удаление публикации
+        PostResponse postResponseDelete = PostApiClient.deletePostApi(postId, spec);
 
         //Запрос в БД
-        String sql = "SELECT ID, post_status FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postStatusDB = resultSet.getString("post_status");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals(postResponseDelete.getStatus(), postStatusDB, "Title не совпадает")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals("trash", postDB.getStatus(), "Статус в БД должен быть trash")
+        );
     }
 
     @Test
     @DisplayName("Удаление уже удаленной публикации")
     void exceptionDeleteTest() {
         //Создание объекта PostRequest
-        PostRequest postRequest = PostRequest.builder()
-                .title("Удаление публикации")
-                .content("Успешное удаление публикации")
-                .excerpt("Удаление публикации")
-                .build();
+        PostRequest postRequest = PostDataBuilder.buildPostRequest("Удаление публикации",
+                "Успешное удаление публикации",
+                "Удаление публикации");
 
-        //Создание публикации
-        PostResponse postResponse = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .body(postRequest)
-                .when()
-                .post("posts")
-                .then()
-                .statusCode(201)
-                .extract()
-                .as(PostResponse.class);
+        //Запрос на создание публикации
+        PostResponse postResponse = PostApiClient.createPostApi(postRequest, spec);
 
         //Сохранение id созданной публикации
         int postId = postResponse.getId();
 
-        PostResponse postResponseDelete = given()
-                .spec(spec)
-                .queryParam("context", "edit")
-                .pathParam("id", postId)
-                .when()
-                .delete("posts/{id}")
-                .then()
-                .statusCode(200)
-                .extract()
-                .as(PostResponse.class);
+        //Сохранение id для удаления из БД
+        postIdToDelete = postId;
 
+        //Запрос на удаление публикации
+        PostResponse postResponseDelete = PostApiClient.deletePostApi(postId, spec);
+
+        //Запрос на удаление уже удаленной публикации
         ExceptionResponse exceptionResponse = given()
                 .spec(spec)
                 .queryParam("context", "edit")
@@ -450,33 +254,18 @@ public class ApiTestPost extends BaseTest {
                 .extract()
                 .as(ExceptionResponse.class);
 
+        //Проверка ответа API
         assertAll("Проверка ответа API об ошибке 410",
                 () -> assertEquals("rest_already_trashed", exceptionResponse.getCode(), "Код ошибки не совпадает"),
                 () -> assertEquals(410, exceptionResponse.getErrorData().getStatus(), "Статус в теле ответа не 410")
         );
 
         //Запрос в БД
-        String sql = "SELECT ID, post_status FROM wp_posts WHERE ID = ?";
+        PostDB postDB = PostDBClient.selectWpPost(postId);
 
-        try (Connection con = ConnectorDB.getConnection();
-             PreparedStatement preparedStatement = con.prepareStatement(sql)) {
-
-            preparedStatement.setInt(1, postId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            if (resultSet.next()) {
-                int postIdBD = resultSet.getInt("ID");
-                String postStatusDB = resultSet.getString("post_status");
-
-                assertAll("Проверка данных в БД",
-                        () -> assertEquals(postId, postIdBD, "ID не совпадает"),
-                        () -> assertEquals("trash", postStatusDB, "Статус в БД должен быть trash")
-                );
-            } else {
-                fail("Запись с ID " + postId + " не найдена в базе данных!");
-            }
-        } catch (Exception ex) {
-            throw new RuntimeException("Ошибка при работе с БД", ex);
-        }
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals("trash", postDB.getStatus(), "Статус в БД должен быть trash")
+        );
     }
 }
