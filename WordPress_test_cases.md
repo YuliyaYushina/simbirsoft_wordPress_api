@@ -5,6 +5,8 @@
 4. Создание комментария к существующему посту
 5. Изменение существующего комментария
 6. Удаление существующего комментария
+7. Получение публикации
+8. Получение комментария
 
 ### **Тест-кейс № 1 Успешное создание публикации (при вводе разных полей)**
 
@@ -376,4 +378,95 @@ HTTP-код: 410 Gone.
     "status": 410
   }
 }
+```
+
+### **Тест кейс № 10 Успешное получение публикации**
+
+**Описание:** Успешное получение созданной публикации в WordPress
+
+**Шаги:** 
+1. Создать тестовую публикацию запросом в базу данных:
+   ```sql
+   INSERT INTO wp_posts (
+    post_author, post_date, post_date_gmt, post_content, post_title, 
+    post_excerpt, post_status, comment_status, ping_status, post_password, 
+    post_name, to_ping, pinged, post_modified, post_modified_gmt, 
+    post_content_filtered, post_parent, guid, menu_order, post_type, 
+    post_mime_type, comment_count) VALUES (
+    1, NOW(), NOW(), 'Получение публикации из БД', 'Публикация для получения из БД', 
+    'Публикация в БД', 'publish', 'open', 'open', '', 
+    'post-from-db', '', '', NOW(), NOW(), 
+    '', 0, '', 0, 'post', 
+    '', 0);
+   ```
+2. Сохранить id созданной записи.
+3. Создать GET запрос /wp/v2/posts/<id>, где id - сохраненный id созданной публикации.
+4. Настроить Authentication: выбрать Basic-Auth, ввести логин и пароль, которые вводились при регистрации в системе.
+5. Отправить запрос.
+
+**Ожидаемый результат:**
+
+HTTP-код: 200 ОК.
+Тело ответа в формате JSON: 
+- id соответсвует сохраненому id созданной публикации,
+- значение title.raw соответствует отправленному значению в INSERT,
+- значение content.raw соответствует отправленному значению в INSERT,
+- значение excerpt.raw соответствует отправленному значению в INSERT.
+
+**Постусловие:**
+1. Удалить созданную запись по id запросом:
+```sql
+DELETE FROM wp_posts WHERE ID = ?
+```
+
+### **Тест-кейс № 11 Успешное получение созданного комментария**
+
+**Описание:** Успешное получение созданного комментария к публикации в WordPress
+
+**Предусловие**:
+1. Создать тестовую публикацию запросом в базу данных:
+   ```sql
+   INSERT INTO wp_posts (
+    post_author, post_date, post_date_gmt, post_content, post_title, 
+    post_excerpt, post_status, comment_status, ping_status, post_password, 
+    post_name, to_ping, pinged, post_modified, post_modified_gmt, 
+    post_content_filtered, post_parent, guid, menu_order, post_type, 
+    post_mime_type, comment_count) VALUES (
+    1, NOW(), NOW(), 'Публикация для создания комментария', 'Публикация для создания комментария из БД', 
+    'Публикация для комментария', 'publish', 'open', 'open', '', 
+    'post-from-db', '', '', NOW(), NOW(), 
+    '', 0, '', 0, 'post', 
+    '', 0);
+   ```
+2. Сохранить id созданной записи.
+
+**Шаги:**
+1. Создать тестовый комментарий запросом в базу данных:
+```sql
+INSERT INTO wp_comments (comment_post_ID, comment_author, comment_author_email, comment_author_url, comment_author_IP, comment_date, comment_date_gmt, comment_content, comment_karma, comment_approved, comment_agent, comment_type, comment_parent, user_id) VALUES (
+<ID_ПОСТА>, 'admin', 'admin@example.com', '', '127.0.0.1', NOW(), NOW(), 'Текст комментария, созданного через SQL', 0, '1', 'Manual Insert', '', 0, 1);
+```
+где ID_ПОСТА - сохраненный id созданной записи.
+
+2. Сохранить id созданного комментария.
+3. Создать GET запрос /wp/v2/comments/<id>, где id - сохраненный id созданного комментария.
+4. Настроить Authentication: выбрать Basic-Auth, ввести логин и пароль, которые вводились при регистрации в системе.
+5. Отправить запрос.
+
+**Ожидаемый результат:**
+
+HTTP-код: 200 ОК.
+Тело ответа в формате JSON: 
+- id соответсвует сохраненому id созданного комментария,
+- значение post соответствует отправленному значению в INSERT,
+- значение content.raw соответствует отправленному значению в INSERT.
+
+**Постусловие:**
+1. Удалить созданный комментарий по id запросом:
+```sql
+DELETE FROM wp_comments WHERE comment_ID = ?
+```
+2. 1. Удалить созданную запись по id запросом:
+```sql
+DELETE FROM wp_posts WHERE ID = ?
 ```
