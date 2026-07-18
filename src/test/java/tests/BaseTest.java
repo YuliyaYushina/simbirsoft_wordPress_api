@@ -30,9 +30,9 @@ public class BaseTest {
 
         @AfterEach
         void cleanup() {
-                if (postIdToDelete == 0 & commentIdToDelete == 0) return;
+                if (postIdToDelete == 0 && commentIdToDelete == 0) return;
 
-                String sqlComments = "DELETE FROM wp_comments WHERE comment_post_ID = ?";
+                String sqlComments = "DELETE FROM wp_comments WHERE comment_ID = ?";
                 String sqlPosts = "DELETE FROM wp_posts WHERE ID = ?";
 
                 try (Connection con = ConnectorDB.getConnection();

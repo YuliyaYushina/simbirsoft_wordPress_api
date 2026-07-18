@@ -3,10 +3,7 @@ package helper;
 import connectorDB.ConnectorDB;
 import dao.CommentDB;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.sql.*;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -54,5 +51,33 @@ public class CommentDBClient {
             throw new RuntimeException("Ошибка при работе с БД", ex);
         }
         return countComments;
+    }
+
+    public static int insertWpComments(int postId, String content) {
+        int commentId = 0;
+        String sql = "INSERT INTO wp_comments (comment_post_ID, comment_author, comment_author_email, " +
+                "comment_author_url, comment_author_IP, comment_date, comment_date_gmt, comment_content, " +
+                "comment_karma, comment_approved, comment_agent, comment_type, comment_parent, user_id) VALUES (\n" +
+                "?, 'admin', 'admin@example.com', '', '127.0.0.1', NOW(), NOW(), " +
+                "?, 0, '1', 'Manual Insert', '', 0, 1);\n";
+
+        try (Connection con = ConnectorDB.getConnection();
+        PreparedStatement preparedStatement = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            preparedStatement.setInt(1, postId);
+            preparedStatement.setString(2, content);
+            preparedStatement.executeUpdate();
+
+            try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    commentId = generatedKeys.getInt(1);
+                } else {
+                    throw new SQLException("Не удалось получить ID после вставки.");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка БД при создании комментария", e);
+        }
+        return commentId;
     }
 }

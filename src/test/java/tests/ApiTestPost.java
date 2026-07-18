@@ -268,4 +268,37 @@ public class ApiTestPost extends BaseTest {
                 () -> assertEquals("trash", postDB.getStatus(), "Статус в БД должен быть trash")
         );
     }
+
+    @Test
+    @DisplayName("Успешное получение созданной публикации")
+    void getPostTest() {
+        //Запрос в БД на создание публикации и сохранение id созданной публикации
+        int postId = PostDBClient.insertWpPost("Получение публикации из БД",
+                "Публикация для получения из БД",
+                "Публикация в БД");
+
+        //Запрос на получение публикации
+        PostResponse postResponse = given()
+                .spec(spec)
+                .queryParam("context", "edit")
+                .pathParam("id", postId)
+                .when()
+                .get("posts/{id}")
+                .then()
+                .extract()
+                .as(PostResponse.class);
+
+        //Сохранение id для удаления
+        postIdToDelete = postResponse.getId();
+
+        //Запрос в БД
+        PostDB postDB = PostDBClient.selectWpPost(postId);
+
+        assertAll("Проверка данных из БД и метода GET",
+                () -> assertEquals(postId, postDB.getId(), "ID не совпадает"),
+                () -> assertEquals(postResponse.getTitle().getRaw(), postDB.getTitle(), "Title не совпадает"),
+                () -> assertEquals(postResponse.getContent().getRaw(), postDB.getContent(), "Content не совпадает"),
+                () -> assertEquals(postResponse.getExcerpt().getRaw(), postDB.getExcerpt(), "Excerpt не совпадает")
+        );
+    }
 }

@@ -385,4 +385,42 @@ public class ApiTestComment extends BaseTest {
                 () -> assertEquals("trash", commentDB.getStatus(), "Статус в БД должен быть trash")
         );
     }
+
+    @Test
+    @DisplayName("Успешное получение созданного комментария")
+    void getCommentTest() {
+        //Запрос в БД на создание публикации и сохранение id созданной публикации
+        int postId = PostDBClient.insertWpPost("Публикация для создания комментария",
+                "Публикация для создания комментария из БД",
+                "Публикация для комментария");
+
+        //Сохранение id публикации для удаления
+        postIdToDelete = postId;
+
+        //Запрос в БД на создание комментария к публикации и сохранение id озданного комментария
+        int commentId = CommentDBClient.insertWpComments(postId, "Текст комментария, созданного через SQL");
+
+        //Запрос на получение комментария
+        CommentResponse commentResponse = given()
+                .spec(spec)
+                .queryParam("context", "edit")
+                .pathParam("id", commentId)
+                .when()
+                .get("comments/{id}")
+                .then()
+                .extract()
+                .as(CommentResponse.class);
+
+        //Сохранение id комментария для удаления
+        commentIdToDelete = commentResponse.getId();
+
+        //Запрос в БД
+        CommentDB commentDB = CommentDBClient.selectWpComments(commentId);
+
+        assertAll("Проверка данных в БД",
+                () -> assertEquals(commentId, commentDB.getCommentId(), "ID комментария не совпадает"),
+                () -> assertEquals(commentResponse.getContent().getRaw(), commentDB.getContent(), "Content не совпадает"),
+                () -> assertEquals(commentResponse.getPost(), commentDB.getPostId(), "ID поста не совпадает")
+        );
+    }
 }
